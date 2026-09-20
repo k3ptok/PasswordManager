@@ -81,6 +81,8 @@ update-entry github.com my_user
 
 **Type `help` to see a full list of commands and flags.**
 
+**IMPORTANT** The passmgr actively refuses duplicates. You will need to curate your .csv files before you upload them. You will lose records otherwise.
+
 ## Data Location
 
 By default, the application will automatically create a hidden directory in your user's home folder to store its configuration, embedded schema migrations, and the database itself.
