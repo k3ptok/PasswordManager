@@ -62,21 +62,59 @@ func verifyMasterPassword(ctx context.Context, repo domain.Repository, masterPW 
 }
 
 func (cli *CLI) Execute() error {
-	rootCMD := &cobra.Command{
-		Use:	"passmgr",
-		Short:	"A secure, local password manager",
-		Long:	`passmgr is a stateless, local password manager designed for the terminal.
-It uses Argon2id for key derivation and AES-GCM for authenticated encryption.
-All data is stored locally in an encrypted SQLite vault.`,
-		Example:`  passmgr init
-  passmgr add github.com my_user -l 24 -s
-  passmgr get github.com my_user
-  passmgr search git`,
+	if len(os.Args) > 1 {
+		cli.buildCommands().Execute()
 	}
 
+	fmt.Println("passmgr started. Type 'help' for commands, or 'exit' to quit")
+	scanner := bufio.NewScanner(os.Stdin)
+
+	for {
+		fmt.Print("passmgr > ")
+		if !scanner.Scan() {
+			break
+		}
+
+		input := strings.TrimSpace(strings.ToLower(scanner.Text()))
+		if input == "" {
+			continue
+		}
+		if input == "exit" || input == "quit" {
+			break
+		}
+
+		args := strings.Fields(input)
+		cmd := cli.buildCommands()
+		cmd.SetArgs(args)
+
+		if err := cmd.Execute(); err != nil {
+			//prevent crashes with bad inputs
+			continue
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		slog.Error("REPL error: Scanner broke", "error", err)
+	}
+
+	return nil
+}
+
+func (cli *CLI) buildCommands() *cobra.Command {
+	rootCMD := &cobra.Command{
+	Use:	"passmgr",
+	Short:	"A secure, local password manager",
+	Long:	"passmgr is a stateless, local password manager designed for the terminal.\n" +
+	"It uses Argon2id for key derivation and AES-GCM for authenticated encryption.\n" +
+	"All data is stored locally in an encrypted SQLite vault.\n",
+	Example: "init\n" +
+  		"add github.com my_user -l 24 -s\n" +
+  		"get github.com my_user\n" +
+  		"search git\n",
+	SilenceUsage: true,
+	}
+	
 	var addLength int
 	var addNoSymbols bool
-
 	addCMD := &cobra.Command{
 		Use:	"add [website url] [username]",
 		Short:	"Add a new password to the vault",
@@ -318,7 +356,10 @@ All data is stored locally in an encrypted SQLite vault.`,
 			return nil
 
 		},
+		
 	}
+	updateCMD.Flags().IntVarP(&updateLength, "length", "l", 32, "Length of the auto-generated password")
+	updateCMD.Flags().BoolVarP(&updateNoSymbols, "no-symbols", "s", false, "Exclude special characters if auto-generating")
 
 	searchCmd := &cobra.Command{
 			Use:   "search [keyword]",
@@ -345,79 +386,74 @@ All data is stored locally in an encrypted SQLite vault.`,
 			},
 		}
 
-		importCmd := &cobra.Command{
-			Use:   "import-csv [file_path]",
-			Short: "Bulk import passwords from a CSV file",
-			Args:  cobra.ExactArgs(1),
-			RunE: func(cmd *cobra.Command, args []string) error {
-				filePath := args[0]
+	importCmd := &cobra.Command{
+		Use:   "import-csv [file_path]",
+		Short: "Bulk import passwords from a CSV file",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			filePath := args[0]
 
-				// 1. Open and parse the CSV
-				file, err := os.Open(filePath)
+			file, err := os.Open(filePath)
+			if err != nil {
+				return fmt.Errorf("could not open file: %w", err)
+			}
+			defer file.Close()
+
+			reader := csv.NewReader(file)
+			records, err := reader.ReadAll()
+			if err != nil {
+				return fmt.Errorf("could not parse CSV: %w", err)
+			}
+
+			if len(records) < 2 {
+				return fmt.Errorf("CSV appears to be empty or missing data rows")
+			}
+
+			masterPw, err := promptSecret("Enter Master Password: ")
+			if err != nil {
+				return err
+			}
+
+			if err := verifyMasterPassword(cmd.Context(), cli.repo, masterPw); err != nil {
+				return err
+			}
+
+			successCount := 0
+			fmt.Println("Importing entries...")
+
+			for i := 1; i < len(records); i++ {
+				row := records[i]
+				if len(row) < 3 {
+					fmt.Printf("Skipping row %d: insufficient columns\n", i+1)
+					continue
+				}
+
+				website := strings.TrimSpace(row[0])
+				username := strings.TrimSpace(row[1])
+				plainPassword := strings.TrimSpace(row[2])
+
+				if website == "" || plainPassword == "" {
+					fmt.Printf("Skipping row %d: missing service or password\n", i+1)
+					continue
+				}
+
+				encryptedBlob, err := vault.Encrypt(masterPw, plainPassword)
 				if err != nil {
-					return fmt.Errorf("could not open file: %w", err)
-				}
-				defer file.Close()
-
-				reader := csv.NewReader(file)
-				// Assuming row 1 is headers (Service, Username, Password)
-				records, err := reader.ReadAll()
-				if err != nil {
-					return fmt.Errorf("could not parse CSV: %w", err)
+					fmt.Printf("Failed to encrypt %s: %v\n", website, err)
+					continue
 				}
 
-				if len(records) < 2 {
-					return fmt.Errorf("CSV appears to be empty or missing data rows")
+				if err := cli.repo.ImportEntry(cmd.Context(), website, username, encryptedBlob); err != nil {
+					fmt.Printf("Failed to save %s: %v\n", website, err)
+					continue
 				}
+				successCount++
+			}
 
-				// 2. Authenticate the user
-				masterPw, err := promptSecret("Enter Master Password: ")
-				if err != nil {
-					return err
-				}
-
-				if err := verifyMasterPassword(cmd.Context(), cli.repo, masterPw); err != nil {
-					return err
-				}
-
-				// 3. Process the records
-				successCount := 0
-				fmt.Println("Importing entries...")
-
-				// Start at index 1 to skip the header row
-				for i := 1; i < len(records); i++ {
-					row := records[i]
-					if len(row) < 3 {
-						fmt.Printf("Skipping row %d: insufficient columns\n", i+1)
-						continue
-					}
-
-					website := strings.TrimSpace(row[0])
-					username := strings.TrimSpace(row[1])
-					plainPassword := strings.TrimSpace(row[2])
-
-					if website == "" || plainPassword == "" {
-						fmt.Printf("Skipping row %d: missing service or password\n", i+1)
-						continue
-					}
-
-					encryptedBlob, err := vault.Encrypt(masterPw, plainPassword)
-					if err != nil {
-						fmt.Printf("Failed to encrypt %s: %v\n", website, err)
-						continue
-					}
-
-					if err := cli.repo.ImportEntry(cmd.Context(), website, username, encryptedBlob); err != nil {
-						fmt.Printf("Failed to save %s: %v\n", website, err)
-						continue
-					}
-					successCount++
-				}
-
-				fmt.Printf("\n Import complete! Successfully processed %d entries.\n", successCount)
-				return nil
-			},
-		}
+			fmt.Printf("\n Import complete! Successfully processed %d entries.\n", successCount)
+			return nil
+		},
+	}
 
 	deleteCMD := &cobra.Command{
 		Use:	"delete-entry [website] [username]",
@@ -445,18 +481,18 @@ All data is stored locally in an encrypted SQLite vault.`,
 			}
 
 			fmt.Println("Warning: If you lose this Master Password, your vault is permanently gone.")
-			masterPW, err := promptSecret("Enter Master Password: ")
+			masterPW, err := promptSecret("\nEnter Master Password: \n")
 			if err != nil {
 				return err
 			}
 
-			confirmPW, err := promptSecret("Confirm Master Password: ")
+			confirmPW, err := promptSecret("\nConfirm Master Password: \n")
 			if err != nil {
 				return err
 			}
 
 			if masterPW != confirmPW {
-				return fmt.Errorf("Entered passwords do not match, aborting initialiuzation...")
+				return fmt.Errorf("Entered passwords do not match, aborting initialization...")
 			}
 
 			encryptedCanary, err := vault.Encrypt(masterPW, "AUTH_OK")
@@ -507,7 +543,8 @@ All data is stored locally in an encrypted SQLite vault.`,
 				return nil
 			},
 		}
+	rootCMD.CompletionOptions.DisableDefaultCmd = true
 	rootCMD.AddCommand(addCMD, getCMD, listCMD, updateCMD, deleteCMD, initCMD, backupCmd,searchCmd, importCmd)
-
-	return rootCMD.Execute()
+	
+	return rootCMD
 }

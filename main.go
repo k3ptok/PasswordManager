@@ -47,7 +47,14 @@ func run() error {
 	}
 
 	goose.SetBaseFS(embedMigrations)
-	goose.SetDialect("sqlite3")
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		slog.Error("Failed to set goose dialect", "error", err)
+		return err
+	}
+	if err := goose.Up(conn, "sql/schema"); err != nil {
+		slog.Error("Database migration failed", "error", err)
+		return err
+	}
 	slog.Info("Database migration successful")
 
 
