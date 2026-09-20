@@ -10,32 +10,58 @@ import (
 )
 
 const createEntry = `-- name: CreateEntry :one
-INSERT INTO entries (website_url, username, encryped_password)
+INSERT INTO entries (website_url, username, encrypted_password)
 VALUES (?, ?, ?)
-RETURNING id, website_url, username, encryped_password, created_at
+RETURNING id, website_url, username, encrypted_password, created_at
 `
 
 type CreateEntryParams struct {
-	WebsiteUrl       string
-	Username         string
-	EncrypedPassword []byte
+	WebsiteUrl        string
+	Username          string
+	EncryptedPassword []byte
 }
 
 func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (Entry, error) {
-	row := q.db.QueryRowContext(ctx, createEntry, arg.WebsiteUrl, arg.Username, arg.EncrypedPassword)
+	row := q.db.QueryRowContext(ctx, createEntry, arg.WebsiteUrl, arg.Username, arg.EncryptedPassword)
 	var i Entry
 	err := row.Scan(
 		&i.ID,
 		&i.WebsiteUrl,
 		&i.Username,
-		&i.EncrypedPassword,
+		&i.EncryptedPassword,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
+const deleteEntry = `-- name: DeleteEntry :exec
+DELETE FROM entries
+WHERE website_url = ? AND username = ?
+`
+
+type DeleteEntryParams struct {
+	WebsiteUrl string
+	Username   string
+}
+
+func (q *Queries) DeleteEntry(ctx context.Context, arg DeleteEntryParams) error {
+	_, err := q.db.ExecContext(ctx, deleteEntry, arg.WebsiteUrl, arg.Username)
+	return err
+}
+
+const getConfig = `-- name: GetConfig :one
+SELECT value FROM config WHERE key = ?
+`
+
+func (q *Queries) GetConfig(ctx context.Context, key string) ([]byte, error) {
+	row := q.db.QueryRowContext(ctx, getConfig, key)
+	var value []byte
+	err := row.Scan(&value)
+	return value, err
+}
+
 const getEntry = `-- name: GetEntry :one
-SELECT id, website_url, username, encryped_password, created_at FROM entries
+SELECT id, website_url, username, encrypted_password, created_at FROM entries
 WHERE website_url = ? AND username = ?
 `
 
@@ -51,19 +77,35 @@ func (q *Queries) GetEntry(ctx context.Context, arg GetEntryParams) (Entry, erro
 		&i.ID,
 		&i.WebsiteUrl,
 		&i.Username,
-		&i.EncrypedPassword,
+		&i.EncryptedPassword,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
+const importEntry = `-- name: ImportEntry :exec
+INSERT INTO entries (website_url, username, encrypted_password)
+VALUES (?, ?, ?)
+ON CONFLICT(website_url, username) DO NOTHING
+`
+
+type ImportEntryParams struct {
+	WebsiteUrl        string
+	Username          string
+	EncryptedPassword []byte
+}
+
+func (q *Queries) ImportEntry(ctx context.Context, arg ImportEntryParams) error {
+	_, err := q.db.ExecContext(ctx, importEntry, arg.WebsiteUrl, arg.Username, arg.EncryptedPassword)
+	return err
+}
+
 const listEntries = `-- name: ListEntries :many
-SELECT id, website_url, username FROM entries
+SELECT website_url, username FROM entries
 ORDER BY website_url
 `
 
 type ListEntriesRow struct {
-	ID         int64
 	WebsiteUrl string
 	Username   string
 }
@@ -77,7 +119,7 @@ func (q *Queries) ListEntries(ctx context.Context) ([]ListEntriesRow, error) {
 	var items []ListEntriesRow
 	for rows.Next() {
 		var i ListEntriesRow
-		if err := rows.Scan(&i.ID, &i.WebsiteUrl, &i.Username); err != nil {
+		if err := rows.Scan(&i.WebsiteUrl, &i.Username); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -89,4 +131,70 @@ func (q *Queries) ListEntries(ctx context.Context) ([]ListEntriesRow, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const searchEntries = `-- name: SearchEntries :many
+SELECT website_url, username FROM entries
+WHERE website_url LIKE ?
+ORDER BY website_url
+`
+
+type SearchEntriesRow struct {
+	WebsiteUrl string
+	Username   string
+}
+
+func (q *Queries) SearchEntries(ctx context.Context, websiteUrl string) ([]SearchEntriesRow, error) {
+	rows, err := q.db.QueryContext(ctx, searchEntries, websiteUrl)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchEntriesRow
+	for rows.Next() {
+		var i SearchEntriesRow
+		if err := rows.Scan(&i.WebsiteUrl, &i.Username); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setConfig = `-- name: SetConfig :exec
+INSERT INTO config (key, value) VALUES (?, ?)
+ON CONFLICT(key) DO UPDATE SET value = excluded.value
+`
+
+type SetConfigParams struct {
+	Key   string
+	Value []byte
+}
+
+func (q *Queries) SetConfig(ctx context.Context, arg SetConfigParams) error {
+	_, err := q.db.ExecContext(ctx, setConfig, arg.Key, arg.Value)
+	return err
+}
+
+const updateEntry = `-- name: UpdateEntry :exec
+UPDATE entries
+SET encrypted_password = ?
+WHERE website_url = ? AND username = ?
+`
+
+type UpdateEntryParams struct {
+	EncryptedPassword []byte
+	WebsiteUrl        string
+	Username          string
+}
+
+func (q *Queries) UpdateEntry(ctx context.Context, arg UpdateEntryParams) error {
+	_, err := q.db.ExecContext(ctx, updateEntry, arg.EncryptedPassword, arg.WebsiteUrl, arg.Username)
+	return err
 }

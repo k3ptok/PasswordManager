@@ -17,7 +17,7 @@ func Load() (*AppConfig, error) {
 		return nil, err
 	}
 
-	baseDir := filepath.Join(homeDir + ".passmgr")
+	baseDir := filepath.Join(homeDir, ".passmgr")
 	if err := os.MkdirAll(baseDir, 0700); err != nil {
 		return nil, err
 	}

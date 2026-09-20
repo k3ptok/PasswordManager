@@ -54,7 +54,7 @@ func run() error {
 	sqlcQueries := db.New(conn)
 	repo := store.NewSQLiteRepo(sqlcQueries)
 
-	appCLI := cmd.NewCLI(repo)
+	appCLI := cmd.NewCLI(repo, cfg)
 	
 	return appCLI.Execute()
 

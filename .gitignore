@@ -1,0 +1,14 @@
+# Compiled binaries
+passmgr
+passmgr.exe
+*.exe
+passmgr-linux
+
+# Database and logs (if you ever test in the root directory)
+*.db
+*.db-journal
+*.log
+
+# Go workspace files
+go.work
+go.work.sum

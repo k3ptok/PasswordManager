@@ -8,10 +8,15 @@ import (
 	"database/sql"
 )
 
+type Config struct {
+	Key   string
+	Value []byte
+}
+
 type Entry struct {
-	ID               int64
-	WebsiteUrl       string
-	Username         string
-	EncrypedPassword []byte
-	CreatedAt        sql.NullTime
+	ID                int64
+	WebsiteUrl        string
+	Username          string
+	EncryptedPassword []byte
+	CreatedAt         sql.NullTime
 }
