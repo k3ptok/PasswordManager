@@ -81,7 +81,7 @@ update-entry github.com my_user
 
 **Type `help` to see a full list of commands and flags.**
 
-**IMPORTANT** The passmgr actively refuses duplicates. You will need to curate your .csv files before you upload them. You will lose records otherwise.
+**IMPORTANT** The passmgr actively refuses duplicates. You will need to curate your .csv files before you upload them. You will lose duplicate records otherwise.
 
 ## Data Location
 
