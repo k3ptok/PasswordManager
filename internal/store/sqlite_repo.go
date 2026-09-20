@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-
 	"github.com/mattn/go-sqlite3"
 
 	"PasswordManager/internal/db"
