@@ -7,7 +7,7 @@ Because passmgr is completely stateless and uses your Master Password to derive 
 
 ---
 ## Motivation
-I started this project because I was sick and tired of paying for password managers that functioned little better me copying and pasting my credentials into a text file. I'm sure I am not the only one with managers jammed full of duplicate and dead entries... In the process of building this manager, I obtained a fascination with Argon2ID encryption and AES-GCM. It is very likely I will build more projects in the future just to play around with those technologies.
+I started this project because I was sick and tired of paying for password managers that functioned little better than me copying and pasting my credentials into a text file. I'm sure I am not the only one with managers jammed full of duplicate and dead entries... In the process of building this manager, I obtained a fascination with Argon2ID encryption and AES-GCM.
 
 ## Security Architecture
 
