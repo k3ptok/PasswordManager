@@ -57,7 +57,7 @@ passmgr> exit
 
 **Initialize your vault. Run this first!**
 ```bash
-passmgr> init
+init
 ```
 **Add a new entry with an auto-generated password**
 ```bash
