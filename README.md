@@ -31,10 +31,8 @@ Building the native Linux binary requires the standard GCC compiler.
 # Install GCC if you don't already have it
 sudo apt update && sudo apt install gcc
 
-# Build the Linux binary
-go build -ldflags="-s -w" -o passmgr main.go
 # Clone the repository
-git clone https://github.com/k3ptok/passmgr.git
+git clone https://github.com/k3ptok/PasswordManager.git
 cd passmgr
 
 # Download dependencies
