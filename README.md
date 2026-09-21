@@ -6,6 +6,8 @@
 Because passmgr is completely stateless and uses your Master Password to derive the encryption keys on the fly, forgetting your password means your vault is permanently inaccessible. You are entirely responsible for remembering your Master Password and backing up your ~/.passmgr/ database folder.
 
 ---
+## Motivation
+I started this project because I was sick and tired of paying for password managers that functioned little better me copying and pasting my credentials into a text file. I'm sure I am not the only one with managers jammed full of duplicate and dead entries... In the process of building this manager, I obtained a fascination with Argon2ID encryption and AES-GCM. It is very likely I will build more projects in the future just to play around with those technologies.
 
 ## Security Architecture
 
@@ -19,7 +21,7 @@ Because passmgr is completely stateless and uses your Master Password to derive 
 
 **Clipboard**: Passwords copied to your clipboard are automatically wiped after 15 seconds.
 
-## 🛠️ Building from Source (CGO Required)
+## 🛠️ Quick Start - Building from Source (CGO required)
 
 This project uses the `github.com/mattn/go-sqlite3` driver, which requires CGO and a C compiler to build the database bindings.
 
@@ -42,7 +44,7 @@ go mod tidy
 go build -ldflags="-s -w" -o passmgr main.go
 
 # (Optional) Cross-compile for Windows from Linux/macOS
-GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o passmgr-win.exe main.go
+CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o passmgr-win.exe main.go
 ```
 ## Usage
 
@@ -82,6 +84,9 @@ update-entry github.com my_user
 **Type `help` to see a full list of commands and flags.**
 
 **IMPORTANT** The passmgr actively refuses duplicates. You will need to curate your .csv files before you upload them. You will lose duplicate records otherwise.
+
+## Contributing
+If you'd like to contribute, feel free to fork and open a pull request to the main branch.
 
 ## Data Location
 
