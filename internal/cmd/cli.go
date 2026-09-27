@@ -62,6 +62,8 @@ func verifyMasterPassword(ctx context.Context, repo domain.Repository, masterPW 
 }
 
 func (cli *CLI) Execute() error {
+	cobra.MousetrapHelpText = ""
+	
 	if len(os.Args) > 1 {
 		cli.buildCommands().Execute()
 	}
