@@ -51,7 +51,7 @@ func verifyMasterPassword(ctx context.Context, repo domain.Repository, masterPW 
 	encryptedCanary, err := repo.GetConfig(ctx, "canaery")
 	if err != nil {
 		
-		return fmt.Errorf("Vault not initialized, or is corrupted. Run 'pssmgr init' first.")
+		return fmt.Errorf("Vault not initialized, or is corrupted. Run 'init' first.")
 	}
 
 	decrypted, err := vault.Decrypt(masterPW, encryptedCanary)
